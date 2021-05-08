@@ -37,3 +37,4 @@ __pycache__
 *.pdf
 /data
 /expt/**/serialization
+*.tar.gz

@@ -6,6 +6,7 @@ import os
 import pickle
 import string
 from typing import Any, Dict, Iterable
+from tqdm import tqdm
 
 import spacy
 import textstat
@@ -20,10 +21,14 @@ from allennlp.models import Model
 from allennlp.models.archival import load_archive
 from allennlp.nn import util as nn_util
 from allennlp.training.util import HasBeenWarned, datasets_from_params
+from allennlp.data.fields import ArrayField, MetadataField, TextField
 from nltk.tokenize import word_tokenize
+from tell.data.token_indexers import RobertaTokenIndexer
 from spacy.tokens import Doc
 
 from .train import yaml_to_params
+
+
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -115,7 +120,7 @@ def evaluate_purterbation(model: Model,
     nlp = spacy.load("en_core_web_lg")
     #print(serialization_dir)
     #Add the eval_suffix default_value
-    eval_suffix = "_perterbation"
+    eval_suffix = "_perterbation_train"
     assert not os.path.exists(os.path.join(
         serialization_dir, f'generations{eval_suffix}.jsonl'))
 
@@ -266,6 +271,9 @@ def write_to_json_purterbation(output_dict, serialization_dir, nlp, eval_suffix,
             f.write(f'{json.dumps(obj)}\n')
 ##########################################################################################
 def evaluate_from_file(archive_path, model_path, overrides=None, eval_suffix='', device=0, purterbation=False):
+    #Added by Mingyang Zhou
+    eval_suffix = "_test_nerlocation"
+    #######################
     if archive_path.endswith('gz'):
         archive = load_archive(archive_path, device, overrides)
         config = archive.config
@@ -277,7 +285,10 @@ def evaluate_from_file(archive_path, model_path, overrides=None, eval_suffix='',
         prepare_environment(config)
         config_dir = os.path.dirname(archive_path)
         serialization_dir = os.path.join(config_dir, 'serialization')
+    #Added by Mingyang to initialize inndexer#
+    # print(config.get("dataset_reader"))
 
+    #########################################
     all_datasets = datasets_from_params(config)
 
     # We want to create the vocab from scratch since it might be of a
@@ -294,7 +305,92 @@ def evaluate_from_file(archive_path, model_path, overrides=None, eval_suffix='',
         best_model_state = torch.load(model_path)
         model.load_state_dict(best_model_state)
 
+    #instances_raw = all_datasets.get('test')
     instances = all_datasets.get('test')
+    #instances = all_datasets.get('train')
+
+    #Get the indexer
+    #indexer_params = config.get('dataset_reader').get('token_indexers')
+    #print(config.pop("dataset_reader"))
+    # token_indexers = {}
+    # for k, p in indexer_params.items():
+    #     class_type = p.pop("type")
+    #     #print(class_type)
+    #     token_indexers[k] = RobertaTokenIndexer.from_params(p)
+    # print("load the test dataset")
+    # for x in instances_raw:
+    #     print(x.fields['context'])
+        #print(x.fields['metadata']['context'])
+        # break
+    ########Added by Mingyang Zhou, NewsClipp Image Swap#######
+    # print("load the swaped subset list")
+    # with open("/home/zmykevin/semafor/code/news_clippings_generation/data/goodnews_test_same_semantics_clip_text_text.json", "r") as f:
+    #     newsclipping_swap_raw= json.load(f)
+    # newsclipping_swap = {x['id']:x['image_id'] for x in newsclipping_swap_raw if x.get('foil', False)}
+    # instance_mapping =  {}
+    # for x in tqdm(instances_raw):
+    #     image_id = x.fields['metadata']['image_path'].split('/')[-1].split('.')[0]
+    #     instance_mapping[image_id] = x
+    
+    # instances = []
+    # for x in instances_raw:
+    #     article_id = x.fields['metadata']['image_path'].split('/')[-1].split('.')[0]
+    #     if newsclipping_swap.get(article_id, None) is not None:
+    #         tgt_id = newsclipping_swap.get(article_id, None)
+    #         tgt_instance =  instance_mapping.get(tgt_id, None)
+    #         if tgt_instance is not None:
+    #             #replace the image, face_embeds , object_emebds
+    #             x.fields['image'] = tgt_instance.fields['image']
+    #             x.fields['face_embeds'] = tgt_instance.fields['face_embeds']
+    #             if tgt_instance.fields.get('obj_embeds', None) is not None:
+    #                 x.fields['obj_embeds'] = tgt_instance.fields['obj_embeds']
+    #             instances.append(x)
+
+
+    ########Added by Mingyang Zhou, Image Swap##################
+    # print("load the swaped subset list")
+    # with open("/home/zmykevin/semafor/code/transform-and-tell/data/goodnews/challenging_subset/name_count_matching_swap_test.json", "r") as f:
+    #     ner_swap_person = json.load(f)
+    # instance_mapping =  {}
+    # for x in tqdm(instances_raw):
+    #     image_id = x.fields['metadata']['image_path'].split('/')[-1].split('.')[0]
+    #     instance_mapping[image_id] = x
+
+    # instances = []
+    # for x in instances_raw:
+    #     article_id = x.fields['metadata']['image_path'].split('/')[-1].split('.')[0]
+    #     #print(article_id)
+    #     if ner_swap_person.get(article_id, None) is not None:
+    #         tgt_id = ner_swap_person.get(article_id, None)['tgt_id']
+    #         tgt_instance =  instance_mapping.get(tgt_id, None)
+    #         if tgt_instance is not None:
+    #             #replace the image, face_embeds , object_emebds
+    #             x.fields['image'] = tgt_instance.fields['image']
+    #             x.fields['face_embeds'] = tgt_instance.fields['face_embeds']
+    #             if tgt_instance.fields.get('obj_embeds', None) is not None:
+    #                 x.fields['obj_embeds'] = tgt_instance.fields['obj_embeds']
+    #             instances.append(x)
+    #         else:
+    #             instances.append(x)
+    #         #print(tgt_id)
+    #     else:
+    #         instances.append(x)
+
+    ################################################
+    # #########Added by Mingyang Zhou##################
+    # print("load the challenging subset list")
+    # with open("/home/zmykevin/semafor/code/transform-and-tell/data/goodnews/challenging_subset/challenge_test.json", "r") as f:
+    #     challenge_list = json.load(f)
+    # valid_count = 0
+    # instances = []
+    # for x in tqdm(instances_raw):
+    #     img_path = x.fields['metadata']['image_path']
+    #     if challenge_list.get(img_path, False):
+    #         instances.append(x)
+    #         valid_count += 1
+        
+    # #################################################
+    
     iterator = DataIterator.from_params(
         config.pop("validation_iterator"))
     

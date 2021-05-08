@@ -1,33 +1,29 @@
 dataset_reader:
-  type: goodnews_face_ner_matched
+  type: nytimes_faces_ner_matched
   tokenizer:
     type: word
-    word_splitter: news_caption_analytic.data.tokenizers.word_splitter.JustSpacesKeepNewlinesWordSplitter
+    word_splitter: just_spaces_keep_newlines
   token_indexers:
     roberta:
       type: roberta
-      #model: news_caption_analytic.data.token_indexers.roberta_indexer.RobertaTokenIndexer
       model_name: roberta-base
       namespace: bpe
       padding_on_right: true
       padding_value: 1
       max_len: 512
-  image_dir: data/goodnews/images_processed
-  eval_limit: 5120
+  image_dir: data/nytimes/images_processed
   lazy: true
   use_caption_names: false
   use_objects: true
 train_data_path: train
-validation_data_path: val
+validation_data_path: valid
 test_data_path: test
 vocabulary:
-  type: news_caption_analytic.data.vocabulary.RobertaVocabulary
-  directory_path: /home/zmykevin/semafor/code/transform-and-tell/expt/vocabulary
+  type: roberta
+  directory_path: ./expt/vocabulary
 model:
-  #type: news_caption_analytic.models.transformer_faces_objects.TransFormerFacesObjectModel
   type: transformer_faces_objects
   decoder:
-    #type: news_caption_analytic.models.decoder_faces_objects.DynamicConvFacesObjectsDecoder
     type: dynamic_conv_decoder_faces_objects
     embedder:
       type: sum

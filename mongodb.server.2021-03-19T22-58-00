@@ -1,0 +1,38 @@
+nohup: ignoring input
+2021-03-19T15:54:27.956-0700 I CONTROL  [initandlisten] MongoDB starting : pid=38728 port=27017 dbpath=data/mongodb 64-bit host=nlp
+2021-03-19T15:54:27.956-0700 I CONTROL  [initandlisten] db version v3.6.3
+2021-03-19T15:54:27.956-0700 I CONTROL  [initandlisten] git version: 9586e557d54ef70f9ca4b43c26892cd55257e1a5
+2021-03-19T15:54:27.956-0700 I CONTROL  [initandlisten] OpenSSL version: OpenSSL 1.1.1  11 Sep 2018
+2021-03-19T15:54:27.956-0700 I CONTROL  [initandlisten] allocator: tcmalloc
+2021-03-19T15:54:27.956-0700 I CONTROL  [initandlisten] modules: none
+2021-03-19T15:54:27.956-0700 I CONTROL  [initandlisten] build environment:
+2021-03-19T15:54:27.957-0700 I CONTROL  [initandlisten]     distarch: x86_64
+2021-03-19T15:54:27.957-0700 I CONTROL  [initandlisten]     target_arch: x86_64
+2021-03-19T15:54:27.957-0700 I CONTROL  [initandlisten] options: { net: { bindIpAll: true }, storage: { dbPath: "data/mongodb", wiredTiger: { engineConfig: { cacheSizeGB: 10.0 } } } }
+2021-03-19T15:54:27.957-0700 I -        [initandlisten] Detected data files in data/mongodb created by the 'wiredTiger' storage engine, so setting the active storage engine to 'wiredTiger'.
+2021-03-19T15:54:27.957-0700 I STORAGE  [initandlisten] 
+2021-03-19T15:54:27.957-0700 I STORAGE  [initandlisten] ** WARNING: Using the XFS filesystem is strongly recommended with the WiredTiger storage engine
+2021-03-19T15:54:27.957-0700 I STORAGE  [initandlisten] **          See http://dochub.mongodb.org/core/prodnotes-filesystem
+2021-03-19T15:54:27.957-0700 I STORAGE  [initandlisten] wiredtiger_open config: create,cache_size=10240M,session_max=20000,eviction=(threads_min=4,threads_max=4),config_base=false,statistics=(fast),log=(enabled=true,archive=true,path=journal,compressor=snappy),file_manager=(close_idle_time=100000),statistics_log=(wait=0),verbose=(recovery_progress),
+2021-03-19T15:54:28.702-0700 I STORAGE  [initandlisten] WiredTiger message [1616194468:702232][38728:0x7ff1463510c0], txn-recover: Main recovery loop: starting at 1010/25984
+2021-03-19T15:54:28.817-0700 I STORAGE  [initandlisten] WiredTiger message [1616194468:817851][38728:0x7ff1463510c0], txn-recover: Recovering log 1010 through 1011
+2021-03-19T15:54:28.891-0700 I STORAGE  [initandlisten] WiredTiger message [1616194468:891291][38728:0x7ff1463510c0], txn-recover: Recovering log 1011 through 1011
+2021-03-19T15:54:28.958-0700 I CONTROL  [initandlisten] 
+2021-03-19T15:54:28.958-0700 I CONTROL  [initandlisten] ** WARNING: Access control is not enabled for the database.
+2021-03-19T15:54:28.958-0700 I CONTROL  [initandlisten] **          Read and write access to data and configuration is unrestricted.
+2021-03-19T15:54:28.958-0700 I CONTROL  [initandlisten] 
+2021-03-19T15:54:28.960-0700 I CONTROL  [initandlisten] 
+2021-03-19T15:54:28.960-0700 I CONTROL  [initandlisten] ** WARNING: You are running on a NUMA machine.
+2021-03-19T15:54:28.960-0700 I CONTROL  [initandlisten] **          We suggest launching mongod like this to avoid performance problems:
+2021-03-19T15:54:28.960-0700 I CONTROL  [initandlisten] **              numactl --interleave=all mongod [other options]
+2021-03-19T15:54:28.960-0700 I CONTROL  [initandlisten] 
+2021-03-19T15:54:28.977-0700 I FTDC     [initandlisten] Initializing full-time diagnostic data capture with directory 'data/mongodb/diagnostic.data'
+2021-03-19T15:54:28.978-0700 I NETWORK  [initandlisten] waiting for connections on port 27017
+2021-03-19T15:56:10.346-0700 I CONTROL  [signalProcessingThread] got signal 15 (Terminated), will terminate after current cmd ends
+2021-03-19T15:56:10.346-0700 I NETWORK  [signalProcessingThread] shutdown: going to close listening sockets...
+2021-03-19T15:56:10.346-0700 I NETWORK  [signalProcessingThread] removing socket file: /tmp/mongodb-27017.sock
+2021-03-19T15:56:10.347-0700 I FTDC     [signalProcessingThread] Shutting down full-time diagnostic data capture
+2021-03-19T15:56:10.352-0700 I STORAGE  [signalProcessingThread] WiredTigerKVEngine shutting down
+2021-03-19T15:56:10.420-0700 I STORAGE  [signalProcessingThread] shutdown: removing fs lock...
+2021-03-19T15:56:10.420-0700 I CONTROL  [signalProcessingThread] now exiting
+2021-03-19T15:56:10.420-0700 I CONTROL  [signalProcessingThread] shutting down with code:0

@@ -1,5 +1,6 @@
 from .goodnews_copy_matched import GoodNewsCopyMatchedReader
 from .goodnews_face_ner_matched import GoodNewsFaceNERMatchedReader
+from .goodnews_face_ner_matched_nerswap import GoodNewsFaceNERMatchedNERSwapReader
 from .goodnews_flattened import FlattenedGoodNewsReader
 from .goodnews_flattened_glove import FlattenedGloveGoodNewsReader
 from .nytimes import NYTimesReader
@@ -7,3 +8,4 @@ from .nytimes_copy_matched import NYTimesCopyMatchedReader
 from .nytimes_faces_ner_matched import NYTimesFacesNERMatchedReader
 from .nytimes_glove import NYTimesGloveReader
 from .nytimes_position import NYTimesPositionReader
+from .nytimes_position_ner import NYTimesPositionNERReader

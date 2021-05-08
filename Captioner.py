@@ -1,5 +1,6 @@
 import sys
 sys.path.append(r'/home/zmykevin/semafor/code/transform-and-tell')
+import base64
 import os
 import torch
 import logging
@@ -8,6 +9,7 @@ import json
 import re
 import numpy as np
 from PIL import Image
+from io import BytesIO
 
 #load from the source code
 from news_caption_analytic.commands.train import yaml_to_params
@@ -107,7 +109,7 @@ def extract_object(img, box, image_size=224, margin=0, save_path=None):
     return obj
 
 class Captioner(object):
-    def __init__(self):
+    def __init__(self, news_data_path=None):
         self.model = None
         self.bpe = None
         self.indices = None
@@ -134,7 +136,7 @@ class Captioner(object):
         else:
             self.device = torch.device('cpu')
         self.config_path = "expt/goodnews/9_transformer_objects/config_caption_generation.yaml"
-        self.news_data_path = "data/semafor"
+        self.news_data_path = news_data_path
     def initialize(self):
         logger.info(f'loading config from {self.config_path}')
         print(f'loading config from {self.config_path}')
@@ -212,8 +214,10 @@ class Captioner(object):
         for batch in iterator:
             if self.device.type == 'cuda':
                 batch = move_to_device(batch, self.device.index)
-            attns_list = self.model.generate(**batch)
-            # generated_captions += output_dict['generations']
+            attns_list, generated_caption = self.model.generate_caption(**batch)
+            generated_captions.append(generated_caption)
+            #output_dict = self.model(**batch)
+            #generated_captions += output_dict['generations']
             # attns = output_dict['attns']
             # len(attns) == gen_len (ignoring seed)
             # len(attns[0]) == n_layers
@@ -226,11 +230,12 @@ class Captioner(object):
             instance['metadata']['image'].save(buffered, format="JPEG")
             img_str = base64.b64encode(buffered.getvalue()).decode()
             output.append({
+                'article_id': instance['metadata']['article_id'],
                 'title': instance['metadata']['title'],
                 'start': instance['metadata']['start'],
                 'before': instance['metadata']['before'],
                 'after': instance['metadata']['after'],
-                # 'caption': generated_captions[i],
+                'caption': generated_captions[i],
                 'attns': attns_list[i],
                 'image': img_str,
             })
@@ -251,6 +256,7 @@ class Captioner(object):
         }
 
         metadata = {
+            'article_id': article_id,
             'title': sample['title'],
             'start': '\n'.join(sample['start']).strip(),
             'before': '\n'.join(sample['before']).strip(),
@@ -351,14 +357,18 @@ class Captioner(object):
         sections = article['content']
         article_figures = article['figures']
         figure_map = {x['media'][0]['source_uri']:x['media'][0]['uri'] for x in article_figures}
+        #print(figure_map)
         #Get the position of the figures
         for i, content_item in enumerate(sections):
             if content_item['Type'] == "Figure":
                 pos = i
                 assert content_item['Media']
-                assert content_item['Media'][0]['Type'] == "image"
+                assert content_item['Media'][0]['Type'] in ["Image", "image"]
+                #print(content_item)
+                # source_uri = content_item['Media'][0]['Uri']
                 source_uri = content_item['Media'][0]['SourceUri']
                 image_path = figure_map[source_uri]
+                #image_path = source_uri
                 break
 
         #Add title into the data
@@ -405,6 +415,8 @@ class Captioner(object):
                 break
         
         #Prepare the Image
+        #Hacky Way to parse
+        #image_path = '/'.join(image_path.split('\\'))
         full_image_path = '/'.join([self.news_data_path, article_id, image_path])
         with Image.open(full_image_path) as image:
             image = image.convert('RGB')
@@ -426,14 +438,16 @@ class Captioner(object):
 
         return output
         
-A = Captioner()
-A.initialize()
+# A = Captioner()
+# A.initialize()
 
-data_dir = "data/semafor/72de494ed44b2515709b19702a4077fd14050d90005284887800474a2e8d1838"
-full_data_path = os.path.join(data_dir, "72de494ed44b2515709b19702a4077fd14050d90005284887800474a2e8d1838.json")
-sample_data = json.load(open(full_data_path, "r"))
-sample_data_id = "72de494ed44b2515709b19702a4077fd14050d90005284887800474a2e8d1838"
-sample_articles = [(sample_data, sample_data_id)]
-output_dict = A.generate_caption(sample_articles)
-print(output_dict)
+# data_dir = "data/semafor/72de494ed44b2515709b19702a4077fd14050d90005284887800474a2e8d1838"
+# full_data_path = os.path.join(data_dir, "72de494ed44b2515709b19702a4077fd14050d90005284887800474a2e8d1838.json")
+# sample_data = json.load(open(full_data_path, "r"))
+# sample_data_id = "72de494ed44b2515709b19702a4077fd14050d90005284887800474a2e8d1838"
+# sample_articles = [(sample_data, sample_data_id)]
+# with torch.no_grad():
+#     output_dict = A.generate_caption(sample_articles)
+# #token_list = [a['text'] for a in output_dict['attns']]
+# print(output_dict[0]['caption'][0]) 
 #output = A.prepare_sample(sample_data, article_id="72de494ed44b2515709b19702a4077fd14050d90005284887800474a2e8d1838")

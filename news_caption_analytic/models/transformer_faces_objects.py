@@ -139,6 +139,175 @@ class TransformerFacesObjectModel(Model):
         self.n_batches += 1
 
         return output_dict
+    def generate_caption(self,  # type: ignore
+                 context: Dict[str, torch.LongTensor],
+                 image: torch.Tensor,
+                 face_embeds,
+                 obj_embeds,
+                 metadata: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
+
+        B = image.shape[0]
+        caption = {self.index: context[self.index].new_zeros(B, 2)}
+        caption_ids, _, contexts = self._forward(
+            context, image, caption, face_embeds, obj_embeds)
+
+        _, gen_ids, attns = self._generate(caption_ids, contexts)
+        gen_texts = [self.roberta.decode(x[x > 1]) for x in gen_ids.cpu()]
+        gen_ids = gen_ids.cpu().numpy().tolist()
+
+        attns_list: List[List[Dict[str, Any]]] = []
+
+        for i, token_ids in enumerate(gen_ids):
+            # Let's process the article text
+            article_ids = context[self.index][i]
+            article_ids = article_ids[article_ids != self.padding_idx]
+            article_ids = article_ids.cpu().numpy()
+            # article_ids.shape == [seq_len]
+
+            # remove <s>
+            if article_ids[0] == self.roberta.task.source_dictionary.bos():
+                article_ids = article_ids[1:]
+
+             # Ignore final </s> token
+            if article_ids[-1] == self.roberta.task.source_dictionary.eos():
+                article_ids = article_ids[:-1]
+
+            # Sanity check. We plus three because we removed <s>, </s> and
+            # the last two attention scores are for no attention and bias
+            assert article_ids.shape[0] == attns[0][0]['article'][i][0].shape[0] - 4
+
+            byte_ids = [int(self.roberta.task.source_dictionary[k])
+                        for k in article_ids]
+            # e.g. [16012, 17163, 447, 247, 82, 4640, 3437]
+
+            byte_strs = [self.roberta.bpe.bpe.decoder.get(token, token)
+                         for token in byte_ids]
+            # e.g. ['Sun', 'rise', 'âĢ', 'Ļ', 's', 'Ġexecutive', 'Ġdirector']
+
+            merged_article = []
+            article_mask = []
+            cursor = 0
+            a: Dict[str, Any] = {}
+            newline = False
+            for j, b in enumerate(byte_strs):
+                # Start a new word
+                if j == 0 or b[0] == 'Ġ' or b[0] == 'Ċ' or newline:
+                    if a:
+                        byte_text = ''.join(a['tokens'])
+                        a['text'] = bytearray([self.roberta.bpe.bpe.byte_decoder[c] for c in byte_text]).decode(
+                            'utf-8', errors=self.roberta.bpe.bpe.errors)
+                        merged_article.append(a)
+                        cursor += 1
+                    # Note that
+                    #   len(attns) == generation_length
+                    #   len(attns[j]) == n_layers
+                    #   attns[j][l] is a dictionary
+                    #   attns[j][l]['article'].shape == [batch_size, target_len, source_len]
+                    #   target_len == 1 since we generate one word at a time
+                    a = {'tokens': [b]}
+                    article_mask.append(cursor)
+                    newline = b[0] == 'Ċ'
+                else:
+                    a['tokens'].append(b)
+                    article_mask.append(cursor)
+            byte_text = ''.join(a['tokens'])
+            a['text'] = bytearray([self.roberta.bpe.bpe.byte_decoder[c] for c in byte_text]).decode(
+                'utf-8', errors=self.roberta.bpe.bpe.errors)
+            merged_article.append(a)
+
+            # Next let's process the caption text
+            attn_dicts: List[Dict[str, Any]] = []
+            # Ignore seed input <s>
+            if token_ids[0] == self.roberta.task.source_dictionary.bos():
+                token_ids = token_ids[1:]  # remove <s>
+            # Now len(token_ids) should be the same of len(attns)
+
+            assert len(attns) == len(token_ids)
+
+            # Ignore final </s> token
+            if token_ids[-1] == self.roberta.task.source_dictionary.eos():
+                token_ids = token_ids[:-1]
+            # Now len(token_ids) should be len(attns) - 1
+
+            byte_ids = [int(self.roberta.task.source_dictionary[k])
+                        for k in token_ids]
+            # e.g. [16012, 17163, 447, 247, 82, 4640, 3437]
+
+            byte_strs = [self.roberta.bpe.bpe.decoder.get(token, token)
+                         for token in byte_ids]
+            # e.g. ['Sun', 'rise', 'âĢ', 'Ļ', 's', 'Ġexecutive', 'Ġdirector']
+
+            # Merge by space
+            a: Dict[str, Any] = {}
+            for j, b in enumerate(byte_strs):
+                # Clean up article attention
+                article_attns = copy.deepcopy(merged_article)
+                start = 0
+                for word in article_attns:
+                    end = start + len(word['tokens'])
+                    layer_attns = []
+                    for layer in range(len(attns[j])):
+                        layer_attns.append(
+                            attns[j][layer]['article'][i][0][start:end].mean())
+                    word['attns'] = layer_attns
+                    start = end
+                    del word['tokens']
+
+                # Start a new word. Ġ is space
+                if j == 0 or b[0] == 'Ġ':
+                    if a:
+                        for l in range(len(a['attns']['image'])):
+                            for modal in ['image', 'faces', 'obj']:
+                                a['attns'][modal][l] /= len(a['tokens'])
+                                a['attns'][modal][l] = a['attns'][modal][l].tolist()
+                            for word in a['attns']['article']:
+                                word['attns'][l] /= len(a['tokens'])
+                                word['attns'][l] = word['attns'][l].tolist()
+                        byte_text = ''.join(a['tokens'])
+                        a['tokens'] = bytearray([self.roberta.bpe.bpe.byte_decoder[c] for c in byte_text]).decode(
+                            'utf-8', errors=self.roberta.bpe.bpe.errors)
+                        attn_dicts.append(a)
+                    # Note that
+                    #   len(attns) == generation_length
+                    #   len(attns[j]) == n_layers
+                    #   attns[j][l] is a dictionary
+                    #   attns[j][l]['article'].shape == [batch_size, target_len, source_len]
+                    #   target_len == 1 since we generate one word at a time
+                    a = {
+                        'tokens': [b],
+                        'attns': {
+                            'article': article_attns,
+                            'image': [attns[j][l]['image'][i][0] for l in range(len(attns[j]))],
+                            'faces': [attns[j][l]['faces'][i][0] for l in range(len(attns[j]))],
+                            'obj': [attns[j][l]['obj'][i][0] for l in range(len(attns[j]))],
+                        }
+                    }
+                else:
+                    a['tokens'].append(b)
+                    for l in range(len(a['attns']['image'])):
+                        for modal in ['image', 'faces', 'obj']:
+                            a['attns'][modal][l] += attns[j][l][modal][i][0]
+                        for w, word in enumerate(a['attns']['article']):
+                            word['attns'][l] += article_attns[w]['attns'][l]
+
+            for l in range(len(a['attns']['image'])):
+                for modal in ['image', 'faces', 'obj']:
+                    a['attns'][modal][l] /= len(a['tokens'])
+                    a['attns'][modal][l] = a['attns'][modal][l].tolist()
+                for word in a['attns']['article']:
+                    word['attns'][l] /= len(a['tokens'])
+                    word['attns'][l] = word['attns'][l].tolist()
+            byte_text = ''.join(a['tokens'])
+            a['tokens'] = bytearray([self.roberta.bpe.bpe.byte_decoder[c] for c in byte_text]).decode(
+                'utf-8', errors=self.roberta.bpe.bpe.errors)
+            attn_dicts.append(a)
+
+            attns_list.append(attn_dicts)
+
+            # gen_texts = [self.roberta.decode(
+            #     x[x != self.padding_idx]) for x in gen_ids]
+
+        return attns_list, gen_texts
 
     def generate(self,  # type: ignore
                  context: Dict[str, torch.LongTensor],

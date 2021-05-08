@@ -96,7 +96,7 @@ def main():
 
     elif args['evaluate']:
         evaluate_from_file(args['param_path'], args['model_path'],
-                           args['overrides'], args['eval_suffix'], purterbation=True)
+                           args['overrides'], args['eval_suffix'], purterbation=False)
 
     # elif args['evaluate_shuffle']:
     #     evaluate_from_purterbated_file(args['param_path'], args['model_path'],
