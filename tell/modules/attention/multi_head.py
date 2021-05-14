@@ -474,7 +474,9 @@ class MultiHeadAttention(nn.Module):
             attn = attn.transpose(0, 1).contiguous().view(
                 tgt_len, bsz, embed_dim)
         attn = self.out_proj(attn)
-
+        
+        # print("Need Weights is: ")
+        # print(need_weights)
         if need_weights:
             # average attention weights over heads
             attn_weights = attn_weights.view(
@@ -482,7 +484,7 @@ class MultiHeadAttention(nn.Module):
             attn_weights = attn_weights.sum(dim=1) / self.num_heads
         else:
             attn_weights = None
-
+        #print(attn_weights)
         return attn, attn_weights
 
     def in_proj_qkv(self, query):

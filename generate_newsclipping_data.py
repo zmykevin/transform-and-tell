@@ -40,39 +40,82 @@ def extract_goodnews_data(ids, db, image_dir="data/goodnews/images"):
 	    assert found_year
 	    time_stamp = f"{Y_M_D[0]}-{Y_M_D[1]}-{Y_M_D[2]}T00:00:00Z"
 	    #print(time_stamp)
-	    result[id_] = {"id": id_, "image_path": image_path, "caption": image_caption, "caption_entities_space": spacy_image_ner, "image_has_person": True, "timestamp": time_stamp}
+	    result[id_] = {"id": id_, "image_path": image_path, "caption": image_caption, "caption_entities_space": spacy_image_ner, "image_has_person": has_person, "timestamp": time_stamp}
 	return result
 
 
 def extract_nytimes_data(ids, db, image_dir = "data/nytimes/images"):
-	
-client = MongoClient(host='localhost', port=27017)
-goodnews = client.goodnews
-config = yaml_to_params("expt/goodnews/9_transformer_objects/config.yaml", overrides=None)
-all_datasets = datasets_from_params(config)
+	result = {}
+	projection = ['_id', 'parsed_section.type', 'parsed_section.text',
+                    'parsed_section.hash', 'parsed_section.named_entities','parsed_section.facenet_details',
+                    'image_positions', 'headline', 'web_url', 'caption_ner', 'pub_date']
+	for article_id in tqdm(ids):
+		article = nytimes.articles.find_one(
+		            {'_id': {'$eq': article_id}}, projection=projection)
+		sections = article["parsed_section"]
+		image_positions = article["image_positions"]
+		pub_date = article['pub_date']
+		time_stamp = pub_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+		#get image_path, image_caption, spacy_image_ner, image_has_person, time_stamp
+		for pos in image_positions:
+			assert sections[pos]['type'] == "caption"
+			image_caption= sections[pos]['text']
+			image_ner = sections[pos].get('named_entities', [])
+			image_path = os.path.join(image_dir, f"{sections[pos]['hash']}.jpg")
 
-#Load the Train Ids
-sample_cursor = goodnews.splits.find({
-            'split': {'$eq': 'train'},
-        }, projection=['_id'], limit=0).sort('_id', pymongo.ASCENDING)
+			spacy_image_ner = [[x['text'], x['label']] for x in image_ner]
 
-train_ids = np.array([article['_id'] for article in tqdm(sample_cursor)])
-sample_cursor.close()
+			has_person = True if "facenet_details" in sections[pos] else False
 
-#Load the Test Ids
-# sample_cursor = goodnews.splits.find({
-#             'split': {'$eq': 'test'},
-#         }, projection=['_id'], limit=0).sort('_id', pymongo.ASCENDING)
+			result[sections[pos]['hash']] = {"id": sections[pos]['hash'], "image_path": image_path, "caption": image_caption, "caption_entities_space": spacy_image_ner, "image_has_person": has_person, "timestamp": time_stamp, "article_id": article_id}
+	return result
 
-# test_ids = np.array([article['_id'] for article in tqdm(sample_cursor)])
-# sample_cursor.close()
+if __name__ == "__main__":        
+	client = MongoClient(host='localhost', port=27017)
+	split = "train"
 
-#Load the train data
-goodnews_train = extract_goodnews_data(train_ids, goodnews)
-#goodnews_test = extract_goodnews_data(test_ids, goodnews)
+	nytimes = client.nytimes
+	sample_cursor = nytimes.articles.find({
+	        'split': split,
+	    }, projection=['_id']).sort('_id', pymongo.ASCENDING)
 
-output_dir = "/home/zmykevin/semafor/code/news_clippings_generation/data/goodnews"
-with open(os.path.join(output_dir,  "goodnews_train.json"), "w") as f:
-    json.dump(goodnews_train, f)
+	ids = np.array([article['_id'] for article in tqdm(sample_cursor)])
+	sample_cursor.close()
+
+	#Load the data
+	nytimes_data  = extract_nytimes_data(ids, nytimes)
+
+	output_dir = "/home/zmykevin/semafor/code/news_clippings_generation/data/nytimes"
+	with open(os.path.join(output_dir,  f"nytimes_{split}.json"), "w") as f:
+	    json.dump(nytimes_data, f)
+
+	#########Code to Generate Goodnews
+	# goodnews = client.goodnews
+	# config = yaml_to_params("expt/goodnews/9_transformer_objects/config.yaml", overrides=None)
+	# all_datasets = datasets_from_params(config)
+
+	# #Load the Train Ids
+	# sample_cursor = goodnews.splits.find({
+	#             'split': {'$eq': 'train'},
+	#         }, projection=['_id'], limit=0).sort('_id', pymongo.ASCENDING)
+
+	# train_ids = np.array([article['_id'] for article in tqdm(sample_cursor)])
+	# sample_cursor.close()
+
+	# #Load the Test Ids
+	# # sample_cursor = goodnews.splits.find({
+	# #             'split': {'$eq': 'test'},
+	# #         }, projection=['_id'], limit=0).sort('_id', pymongo.ASCENDING)
+
+	# # test_ids = np.array([article['_id'] for article in tqdm(sample_cursor)])
+	# # sample_cursor.close()
+
+	# #Load the train data
+	# goodnews_train = extract_goodnews_data(train_ids, goodnews)
+	# #goodnews_test = extract_goodnews_data(test_ids, goodnews)
+
+	# output_dir = "/home/zmykevin/semafor/code/news_clippings_generation/data/goodnews"
+	# with open(os.path.join(output_dir,  "goodnews_train.json"), "w") as f:
+	#     json.dump(goodnews_train, f)
 
 

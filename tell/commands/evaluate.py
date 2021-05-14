@@ -272,7 +272,7 @@ def write_to_json_purterbation(output_dict, serialization_dir, nlp, eval_suffix,
 ##########################################################################################
 def evaluate_from_file(archive_path, model_path, overrides=None, eval_suffix='', device=0, purterbation=False):
     #Added by Mingyang Zhou
-    eval_suffix = "_test_nerlocation"
+    eval_suffix = "_test_mewsclipping_person"
     #######################
     if archive_path.endswith('gz'):
         archive = load_archive(archive_path, device, overrides)
@@ -305,8 +305,8 @@ def evaluate_from_file(archive_path, model_path, overrides=None, eval_suffix='',
         best_model_state = torch.load(model_path)
         model.load_state_dict(best_model_state)
 
-    #instances_raw = all_datasets.get('test')
-    instances = all_datasets.get('test')
+    instances_raw = all_datasets.get('test')
+    #instances = all_datasets.get('test')
     #instances = all_datasets.get('train')
 
     #Get the indexer
@@ -323,28 +323,28 @@ def evaluate_from_file(archive_path, model_path, overrides=None, eval_suffix='',
         #print(x.fields['metadata']['context'])
         # break
     ########Added by Mingyang Zhou, NewsClipp Image Swap#######
-    # print("load the swaped subset list")
-    # with open("/home/zmykevin/semafor/code/news_clippings_generation/data/goodnews_test_same_semantics_clip_text_text.json", "r") as f:
-    #     newsclipping_swap_raw= json.load(f)
-    # newsclipping_swap = {x['id']:x['image_id'] for x in newsclipping_swap_raw if x.get('foil', False)}
-    # instance_mapping =  {}
-    # for x in tqdm(instances_raw):
-    #     image_id = x.fields['metadata']['image_path'].split('/')[-1].split('.')[0]
-    #     instance_mapping[image_id] = x
+    print("load the swaped subset list")
+    with open("/home/zmykevin/semafor/code/news_clippings_generation/data/goodnews_foil/goodnews_test_same_person_person.json", "r") as f:
+        newsclipping_swap_raw= json.load(f)
+    newsclipping_swap = {x['id']:x['image_id'] for x in newsclipping_swap_raw if x.get('foil', False)}
+    instance_mapping =  {}
+    for x in tqdm(instances_raw):
+        image_id = x.fields['metadata']['image_path'].split('/')[-1].split('.')[0]
+        instance_mapping[image_id] = x
     
-    # instances = []
-    # for x in instances_raw:
-    #     article_id = x.fields['metadata']['image_path'].split('/')[-1].split('.')[0]
-    #     if newsclipping_swap.get(article_id, None) is not None:
-    #         tgt_id = newsclipping_swap.get(article_id, None)
-    #         tgt_instance =  instance_mapping.get(tgt_id, None)
-    #         if tgt_instance is not None:
-    #             #replace the image, face_embeds , object_emebds
-    #             x.fields['image'] = tgt_instance.fields['image']
-    #             x.fields['face_embeds'] = tgt_instance.fields['face_embeds']
-    #             if tgt_instance.fields.get('obj_embeds', None) is not None:
-    #                 x.fields['obj_embeds'] = tgt_instance.fields['obj_embeds']
-    #             instances.append(x)
+    instances = []
+    for x in instances_raw:
+        article_id = x.fields['metadata']['image_path'].split('/')[-1].split('.')[0]
+        if newsclipping_swap.get(article_id, None) is not None:
+            tgt_id = newsclipping_swap.get(article_id, None)
+            tgt_instance =  instance_mapping.get(tgt_id, None)
+            if tgt_instance is not None:
+                #replace the image, face_embeds , object_emebds
+                x.fields['image'] = tgt_instance.fields['image']
+                x.fields['face_embeds'] = tgt_instance.fields['face_embeds']
+                if tgt_instance.fields.get('obj_embeds', None) is not None:
+                    x.fields['obj_embeds'] = tgt_instance.fields['obj_embeds']
+                instances.append(x)
 
 
     ########Added by Mingyang Zhou, Image Swap##################

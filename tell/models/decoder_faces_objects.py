@@ -270,6 +270,7 @@ class DynamicConvDecoderLayer(DecoderLayer):
         X_contexts = []
 
         # Image attention
+        # print(contexts['image'])
         residual = X
         X_image = self.maybe_layer_norm(
             self.context_attn_lns['image'], X, before=True)
@@ -286,7 +287,7 @@ class DynamicConvDecoderLayer(DecoderLayer):
         X_image = self.maybe_layer_norm(
             self.context_attn_lns['image'], X_image, after=True)
         X_contexts.append(X_image)
-        attns['image'] = attn.cpu().detach().numpy()
+        attns['image'] = attn.cpu().detach().numpy() if attn is not None else attn
 
         # Article attention
         residual = X
@@ -306,7 +307,7 @@ class DynamicConvDecoderLayer(DecoderLayer):
         X_article = self.maybe_layer_norm(
             self.context_attn_lns['article'], X_article, after=True)
         X_contexts.append(X_article)
-        attns['article'] = attn.cpu().detach().numpy()
+        attns['article'] = attn.cpu().detach().numpy() if attn is not None else attn
 
         # Face attention
         residual = X
@@ -326,7 +327,7 @@ class DynamicConvDecoderLayer(DecoderLayer):
         X_faces = self.maybe_layer_norm(
             self.context_attn_lns['faces'], X_faces, after=True)
         X_contexts.append(X_faces)
-        attns['faces'] = attn.cpu().detach().numpy()
+        attns['faces'] = attn.cpu().detach().numpy() if attn is not None else attn
 
         # Object attention
         residual = X
@@ -346,7 +347,7 @@ class DynamicConvDecoderLayer(DecoderLayer):
         X_objs = self.maybe_layer_norm(
             self.context_attn_lns['obj'], X_objs, after=True)
         X_contexts.append(X_objs)
-        attns['obj'] = attn.cpu().detach().numpy()
+        attns['obj'] = attn.cpu().detach().numpy() if attn is not None else attn
 
         X_context = torch.cat(X_contexts, dim=-1)
         X = self.context_fc(X_context)
